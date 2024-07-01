@@ -101,6 +101,7 @@ const MapComponent = ({ apiKey }) => {
                         color: 'red'
                     });
                     map.markers.add(marker);
+                    console.log('Marker added at:', [lng, lat]);
                 } else {
                     console.error('Invalid marker position calculated:', { lng, lat });
                 }
