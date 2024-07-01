@@ -15,6 +15,12 @@ rf = Roboflow(api_key="rtLyMd4uL7EyKJ8SJEyv")
 project = rf.workspace().project("parking_lot-famom")
 model = project.version(6).model
 
+def sharpen_image(image):
+    kernel = np.array([[0, -1, 0],
+                       [-1, 5,-1],
+                       [0, -1, 0]])
+    return cv2.filter2D(image, -1, kernel)
+
 @app.route('/process-image', methods=['POST'])
 def process_image():
     data = request.get_json()
@@ -24,6 +30,9 @@ def process_image():
     
     if img is None:
         return jsonify({'error': 'Invalid image data'}), 400
+
+    # Sharpen the image
+    img = sharpen_image(img)
 
     # Save the incoming image for debugging
     incoming_image_path = "incoming_image.png"
