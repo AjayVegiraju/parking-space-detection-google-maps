@@ -21,7 +21,7 @@ const MapComponent = ({ apiKey }) => {
                 authType: atlas.AuthenticationType.subscriptionKey,
                 subscriptionKey: apiKey
             },
-            preserveDrawingBuffer: trueå
+            preserveDrawingBuffer: true
         });
 
         mapInstance.events.add('ready', () => {
