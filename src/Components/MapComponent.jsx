@@ -20,7 +20,7 @@ const MapComponent = ({ apiKey }) => {
                 authType: atlas.AuthenticationType.subscriptionKey,
                 subscriptionKey: apiKey
             },
-            preserveDrawingBuffer: true // Ensure the canvas can be exported
+            preserveDrawingBuffer: true
         });
 
         mapInstance.events.add('ready', () => {
@@ -49,53 +49,65 @@ const MapComponent = ({ apiKey }) => {
                 const canvas = map.getCanvas();
                 const dataUri = canvas.toDataURL('image/png');
 
-                // Get the bounds of the map
                 const bounds = map.getCamera().bounds;
-                const nw = [bounds[0][0], bounds[1][1]]; // Northwest corner [lng, lat]
-                const se = [bounds[1][0], bounds[0][1]]; // Southeast corner [lng, lat]
-
                 console.log('Map Bounds:', bounds);
-                console.log('NW:', nw, 'SE:', se);
                 console.log('Canvas Dimensions:', canvas.width, canvas.height);
 
                 const response = await axios.post('http://127.0.0.1:5000/process-image', { image: dataUri });
                 setAnnotatedImage(response.data.annotated_image);
                 setIncomingImage(response.data.incoming_image);
-                placeMarkers(response.data.marker_coordinates, nw, se, canvas.width, canvas.height);
+                placeMarkers(response.data.marker_coordinates, bounds, canvas.width, canvas.height);
             } catch (error) {
                 console.error('Error capturing screenshot:', error);
             }
         }
     };
 
-    const placeMarkers = (coordinates, nw, se, imgWidth, imgHeight) => {
+    const placeMarkers = (coordinates, bounds, imgWidth, imgHeight) => {
         if (map) {
-            const zoom = map.getCamera().zoom;
-            const tileSize = 256;
-            const mapSize = tileSize * Math.pow(2, zoom);
-    
+            map.markers.clear(); // Clear existing markers
+
+            console.log('Bounds:', bounds);
+            console.log('Image dimensions:', imgWidth, imgHeight);
+
+            const westLng = bounds[0];
+            const southLat = bounds[1];
+            const eastLng = bounds[2];
+            const northLat = bounds[3];
+
+            console.log('West:', westLng, 'South:', southLat, 'East:', eastLng, 'North:', northLat);
+
+            const lngDiff = eastLng - westLng;
+            const latDiff = northLat - southLat;
+
+            console.log('Longitude difference:', lngDiff, 'Latitude difference:', latDiff);
+
             coordinates.forEach(coord => {
-                const globalX = coord.x / imgWidth * mapSize;
-                const globalY = coord.y / imgHeight * mapSize;
-    
-                const lng = (globalX / mapSize) * 360 - 180;
-                const lat = 90 - 360 * Math.atan(Math.exp(-(globalY / mapSize - 0.5) * 2 * Math.PI)) / Math.PI;
-    
-                console.log('Marker Position:', { lng, lat });
-    
-                if (!isNaN(lng) && !isNaN(lat)) {
+                console.log('Original coordinate:', coord);
+
+                const lngRatio = coord.x / imgWidth;
+                const latRatio = 1 - (coord.y / imgHeight); // Invert Y-axis
+
+                console.log('Longitude ratio:', lngRatio, 'Latitude ratio:', latRatio);
+
+                const lng = westLng + (lngRatio * lngDiff);
+                const lat = southLat + (latRatio * latDiff);
+
+                console.log('Calculated Marker Position:', { lng, lat });
+
+                if (!isNaN(lng) && !isNaN(lat) && lng >= -180 && lng <= 180 && lat >= -90 && lat <= 90) {
                     const marker = new atlas.HtmlMarker({
                         position: [lng, lat],
                         color: 'red'
                     });
                     map.markers.add(marker);
+                    console.log('Marker added at:', [lng, lat]);
                 } else {
                     console.error('Invalid marker position calculated:', { lng, lat });
                 }
             });
         }
     };
-    
 
     const downloadImage = (imageData, filename) => {
         const link = document.createElement('a');
