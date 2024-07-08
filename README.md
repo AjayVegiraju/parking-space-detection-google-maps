@@ -11,12 +11,14 @@ Table of Contents
 
 
 
-[Features](#features)
+Features
 - Dynamic capture of map screenshots based on the map component's size.
 - Object detection using a Roboflow model.
 - Display of detected objects with markers.
 - Full-screen map component with control buttons.
 - CORS enabled for cross-origin requests.
+
+  
 Technologies Used
 - React
 - Flask
@@ -25,11 +27,15 @@ Technologies Used
 - Google Maps API
 - Axios
 - Supervision
+
+  
 Setup and Installation
+
 Prerequisites
 - Node.js and npm
 - Python 3.x
 - Virtualenv (optional but recommended)
+  
 Clone the Repository
 ```bash
 git clone https://github.com/your-repo-url/dynamic-map-screenshot.git
