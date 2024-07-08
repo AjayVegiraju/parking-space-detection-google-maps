@@ -10,8 +10,8 @@
 
 #mapContainer {
   margin: 20px auto;
-  height: 500px;
-  width: 500px; /* Ensure the container is square */
+  height: 1000px;
+  width: 1000px; /* Ensure the container is square */
   max-width: 100%;
 }
 

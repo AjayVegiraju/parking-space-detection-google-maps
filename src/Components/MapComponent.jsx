@@ -1,94 +1,139 @@
-import React, { useState, useEffect, useRef } from 'react';
-import * as atlas from 'azure-maps-control';
-import * as atlasRest from 'azure-maps-rest';
+import React, { useState, useRef } from 'react';
+import { GoogleMap, LoadScript, Marker, StandaloneSearchBox } from '@react-google-maps/api';
 import axios from 'axios';
 
+const containerStyle = {
+    width: '1280px',
+    height: '1280px',
+    margin: '0 auto'
+};
+
+const center = {
+    lat: 47.61373420362662,
+    lng: -122.18402494821507
+};
+
 const MapComponent = ({ apiKey }) => {
-    const mapRef = useRef(null);
     const [map, setMap] = useState(null);
-    const [datasource, setDatasource] = useState(null);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [annotatedImage, setAnnotatedImage] = useState(null);
-    const [incomingImage, setIncomingImage] = useState(null);
+    const [markers, setMarkers] = useState([]);
+    const [annotatedImages, setAnnotatedImages] = useState([]);
+    const [incomingImages, setIncomingImages] = useState([]);
+    const searchBoxRef = useRef(null);
+    const [searchBox, setSearchBox] = useState(null);
 
-    useEffect(() => {
-        const mapInstance = new atlas.Map(mapRef.current, {
-            center: [-122.18402494821507, 47.61373420362662],
-            zoom: 18,
-            style: 'satellite',
-            language: 'en-US',
-            authOptions: {
-                authType: atlas.AuthenticationType.subscriptionKey,
-                subscriptionKey: apiKey
-            },
-            preserveDrawingBuffer: true
-        });
+    const onLoad = mapInstance => {
+        setMap(mapInstance);
+    };
 
-        mapInstance.events.add('ready', () => {
-            const datasourceInstance = new atlas.source.DataSource();
-            mapInstance.sources.add(datasourceInstance);
-            mapInstance.layers.add(new atlas.layer.SymbolLayer(datasourceInstance));
-            setDatasource(datasourceInstance);
-            setMap(mapInstance);
-        });
+    const onSearchBoxLoad = ref => {
+        searchBoxRef.current = ref;
+        setSearchBox(ref);
+    };
 
-        return () => mapInstance.dispose();
-    }, [apiKey]);
+    const onPlacesChanged = () => {
+        const places = searchBox.getPlaces();
+        if (places.length > 0) {
+            const place = places[0];
+            const location = place.geometry.location;
+            map.panTo({ lat: location.lat(), lng: location.lng() });
+        }
+    };
 
-    const handleSearch = () => {
+    const captureScreenshots = async () => {
         if (map) {
-            const pipeline = atlasRest.MapsURL.newPipeline(new atlasRest.SubscriptionKeyCredential(apiKey));
-            const searchURL = new atlasRest.SearchURL(pipeline);
-            searchURL.searchAddress(atlasRest.Aborter.timeout(10000), searchQuery).then(response => {
-                const coordinates = response.geojson.getFeatures().features[0].geometry.coordinates;
-                map.setCamera({ center: coordinates });
-            }).catch(error => {
-                console.error('Search error: ', error);
+            const bounds = map.getBounds();
+            const ne = bounds.getNorthEast();
+            const sw = bounds.getSouthWest();
+            const zoom = map.getZoom();
+
+            // Calculate the centers of each subsection accurately
+            const latStep = (ne.lat() - sw.lat()) / 2;
+            const lngStep = (ne.lng() - sw.lng()) / 2;
+
+            const centers = [
+                { lat: ne.lat() - latStep / 2, lng: sw.lng() + lngStep / 2, id: 'top-left' }, // top-left
+                { lat: ne.lat() - latStep / 2, lng: ne.lng() - lngStep / 2, id: 'top-right' }, // top-right
+                { lat: sw.lat() + latStep / 2, lng: sw.lng() + lngStep / 2, id: 'bottom-left' }, // bottom-left
+                { lat: sw.lat() + latStep / 2, lng: ne.lng() - lngStep / 2, id: 'bottom-right' }, // bottom-right
+            ];
+
+            const tilePromises = centers.map(async (center) => {
+                const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${center.lat},${center.lng}&zoom=${zoom}&size=640x640&maptype=satellite&key=${apiKey}`;
+                const response = await axios.get(staticMapUrl, { responseType: 'arraybuffer' });
+                return { image: arrayBufferToBase64(response.data), id: center.id };
             });
+
+            const tileImages = await Promise.all(tilePromises);
+
+            const processedImages = await Promise.all(
+                tileImages.map(async (tile) => {
+                    try {
+                        const processResponse = await axios.post('http://127.0.0.1:5000/process-image', { image: `data:image/png;base64,${tile.image}`, subsection_id: tile.id });
+                        return { ...processResponse.data, id: tile.id };
+                    } catch (error) {
+                        console.error('Error processing image:', error);
+                        if (error.response) {
+                            console.error('Error response data:', error.response.data);
+                        }
+                        return null;
+                    }
+                })
+            );
+
+            const validProcessedImages = processedImages.filter(image => image !== null);
+
+            const markerPositions = calculateMarkerPositions(validProcessedImages, bounds);
+            setMarkers(markerPositions);
+
+            // Save incoming and annotated images
+            setIncomingImages(validProcessedImages.map(img => ({ id: img.id, src: img.incoming_image })));
+            setAnnotatedImages(validProcessedImages.map(img => ({ id: img.id, src: img.annotated_image })));
         }
     };
 
-    const captureScreenshot = async () => {
-        if (map) {
-            try {
-                const canvas = map.getCanvas();
-                const dataUri = canvas.toDataURL('image/png');
-
-                const response = await axios.post('http://127.0.0.1:5000/process-image', { image: dataUri });
-                setAnnotatedImage(response.data.annotated_image);
-                setIncomingImage(response.data.incoming_image);
-
-                clearMap(); // Clear the map before placing new markers
-                const markerPositions = calculateMarkerPositions(response.data.marker_coordinates);
-                placeMarkers(markerPositions);
-            } catch (error) {
-                console.error('Error capturing screenshot:', error);
-            }
+    const arrayBufferToBase64 = buffer => {
+        let binary = '';
+        const bytes = new Uint8Array(buffer);
+        const len = bytes.byteLength;
+        for (let i = 0; i < len; i++) {
+            binary += String.fromCharCode(bytes[i]);
         }
+        return window.btoa(binary);
     };
 
-    const calculateMarkerPositions = (coordinates) => {
-        const markerPositions = coordinates.map(coord => {
-            const pixel = new atlas.Pixel(coord.x, coord.y);
-            return map.pixelsToPositions([pixel])[0];
+    const calculateMarkerPositions = (processedImages, bounds) => {
+        const ne = bounds.getNorthEast();
+        const sw = bounds.getSouthWest();
+
+        const lngDiff = ne.lng() - sw.lng();
+        const latDiff = ne.lat() - sw.lat();
+
+        const markerPositions = [];
+
+        processedImages.forEach((processedImage, index) => {
+            const { marker_coordinates } = processedImage;
+            const tileOffsetX = (index % 2) * 640;
+            const tileOffsetY = Math.floor(index / 2) * 640;
+
+            marker_coordinates.forEach(coord => {
+                const lngRatio = (tileOffsetX + coord.x) / 1280;
+                const latRatio = 1 - (tileOffsetY + coord.y) / 1280; // Invert Y-axis
+
+                const lng = sw.lng() + (lngRatio * lngDiff);
+                const lat = sw.lat() + (latRatio * latDiff);
+
+                markerPositions.push({ lat, lng });
+            });
         });
 
         console.log('Calculated Marker Positions:', markerPositions);
         return markerPositions;
     };
 
-    const placeMarkers = (markerPositions) => {
-        if (datasource) {
-            const features = markerPositions.map(position => new atlas.data.Feature(new atlas.data.Point([position[0], position[1]])));
-            datasource.clear();
-            datasource.add(new atlas.data.FeatureCollection(features));
-        }
-    };
-
     const clearMap = () => {
-        if (datasource) {
-            datasource.clear(); // Clear all features from the datasource
-        }
+        setMarkers([]);
+        setIncomingImages([]);
+        setAnnotatedImages([]);
     };
 
     const downloadImage = (imageData, filename) => {
@@ -102,26 +147,59 @@ const MapComponent = ({ apiKey }) => {
 
     return (
         <div>
-            <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Enter address"
-            />
-            <button onClick={handleSearch}>Search</button>
-            <button onClick={captureScreenshot}>Capture Screenshot</button>
-            <button onClick={clearMap}>Clear Map</button>
-            <div id="mapContainer" ref={mapRef} style={{ height: '500px', width: '500px', margin: '0 auto' }}></div>
-            {incomingImage && (
-                <div>
-                    <button onClick={() => downloadImage(incomingImage, 'incoming_image.png')}>Download Incoming Image</button>
-                </div>
-            )}
-            {annotatedImage && (
-                <div>
-                    <button onClick={() => downloadImage(annotatedImage, 'annotated_image.png')}>Download Annotated Image</button>
-                </div>
-            )}
+            <LoadScript googleMapsApiKey={apiKey} libraries={["places"]}>
+                <StandaloneSearchBox
+                    onLoad={onSearchBoxLoad}
+                    onPlacesChanged={onPlacesChanged}
+                >
+                    <input
+                        type="text"
+                        placeholder="Search for places"
+                        style={{
+                            boxSizing: `border-box`,
+                            border: `1px solid transparent`,
+                            width: `240px`,
+                            height: `32px`,
+                            marginTop: `10px`,
+                            padding: `0 12px`,
+                            borderRadius: `3px`,
+                            boxShadow: `0 2px 6px rgba(0, 0, 0, 0.3)`,
+                            fontSize: `14px`,
+                            outline: `none`,
+                            textOverflow: `ellipses`,
+                            position: "absolute",
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            zIndex: "10"
+                        }}
+                    />
+                </StandaloneSearchBox>
+                <GoogleMap
+                    mapContainerStyle={containerStyle}
+                    center={center}
+                    zoom={18}
+                    onLoad={onLoad}
+                    mapTypeId="satellite"
+                >
+                    {markers.map((position, index) => (
+                        <Marker key={index} position={position} />
+                    ))}
+                </GoogleMap>
+            </LoadScript>
+            <div style={{ textAlign: 'center', marginTop: '10px' }}>
+                <button onClick={captureScreenshots}>Detect Parking Spaces</button>
+                <button onClick={clearMap}>Clear Map</button>
+                {incomingImages.map((img, index) => (
+                    <div key={index}>
+                        <button onClick={() => downloadImage(img.src, `incoming_image_${img.id}.png`)}>Download Incoming Image {img.id}</button>
+                    </div>
+                ))}
+                {annotatedImages.map((img, index) => (
+                    <div key={index}>
+                        <button onClick={() => downloadImage(img.src, `annotated_image_${img.id}.png`)}>Download Annotated Image {img.id}</button>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 };

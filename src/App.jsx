@@ -8,7 +8,7 @@ const App = () => {
       <header className="App-header">
         <h1>Parking Space Detector</h1>
       </header>
-      <MapComponent apiKey="6dqjUZBfABBAnsVwe9pKelPQfpe6ywKGarBr5xk6pg6WoP7pHFreJQQJ99AFAC8vTIn3kjgkAAAgAZMP18qH" />
+      <MapComponent apiKey="AIzaSyAID1oIv9wfHb7pzjmfHQmPdvLoRY5eDzo" />
     </div>
   );
 }
