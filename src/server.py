@@ -56,7 +56,9 @@ def process_image():
         app.logger.debug(f'Subsection image saved at {subsection_image_path}')
 
         # Resize the image
-        img = resize_image(img, 640, 640)
+        max_width = data.get('max_width', 640)
+        max_height = data.get('max_height', 640)
+        img = resize_image(img, max_width, max_height)
         app.logger.debug('Image resized successfully')
 
         # Sharpen the image
@@ -70,7 +72,7 @@ def process_image():
 
         # Get predictions
         try:
-            result = model.predict(incoming_image_path, confidence=45, overlap=50).json()
+            result = model.predict(incoming_image_path, confidence=50, overlap=50).json()
             app.logger.debug(f'Prediction result: {result}')
         except Exception as e:
             app.logger.error(f'Error during prediction: {e}', exc_info=True)
