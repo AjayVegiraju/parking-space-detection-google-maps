@@ -8,7 +8,10 @@ Table of Contents
 - [Server API](#server-api)
 - [Client Code](#client-code)
 - [Future Enhancements](#future-enhancements)
-Features
+
+
+
+[Features](#features)
 - Dynamic capture of map screenshots based on the map component's size.
 - Object detection using a Roboflow model.
 - Display of detected objects with markers.
