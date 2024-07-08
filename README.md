@@ -1,70 +1,124 @@
-# Getting Started with Create React App
+Dynamic Map Screenshot and Image Processing Application
+Table of Contents
+- [Features](#features)
+- [Technologies Used](#technologies-used)
+- [Setup and Installation](#setup-and-installation)
+- [Running the Application](#running-the-application)
+- [Project Structure](#project-structure)
+- [Server API](#server-api)
+- [Client Code](#client-code)
+- [Future Enhancements](#future-enhancements)
+Features
+- Dynamic capture of map screenshots based on the map component's size.
+- Object detection using a Roboflow model.
+- Display of detected objects with markers.
+- Full-screen map component with control buttons.
+- CORS enabled for cross-origin requests.
+Technologies Used
+- React
+- Flask
+- OpenCV
+- Roboflow
+- Google Maps API
+- Axios
+- Supervision
+Setup and Installation
+Prerequisites
+- Node.js and npm
+- Python 3.x
+- Virtualenv (optional but recommended)
+Clone the Repository
+```bash
+git clone https://github.com/your-repo-url/dynamic-map-screenshot.git
+cd dynamic-map-screenshot
+```
+Backend (Flask)
+1. Create a virtual environment (optional but recommended):
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows use `venv\Scripts\activate`
+```
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+2. Install Python dependencies:
+```bash
+pip install -r requirements.txt
+```
 
-## Available Scripts
+3. Set up environment variables (if needed):
+```bash
+export ROBOFLOW_API_KEY="your_roboflow_api_key"
+```
 
-In the project directory, you can run:
+4. Run the Flask server:
+```bash
+python server.py
+```
+Frontend (React)
+1. Navigate to the frontend directory:
+```bash
+cd client
+```
 
-### `npm start`
+2. Install npm dependencies:
+```bash
+npm install
+```
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+3. Run the React development server:
+```bash
+npm start
+```
+Running the Application
+1. Ensure the Flask server is running.
+2. Start the React development server.
+3. Open your browser and navigate to `http://localhost:3000`.
+Project Structure
+```
+.
+├── client                  # React frontend
+│   ├── public
+│   └── src
+│       ├── components
+│       └── App.js
+├── server.py               # Flask backend
+├── requirements.txt        # Python dependencies
+└── README.md
+```
+Server API
+Endpoint: `/process-image`
+**Method:** `POST`
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+**Description:** Processes an image, detects objects using a Roboflow model, and returns the annotated image and marker coordinates.
 
-### `npm test`
+**Request Body:**
+```json
+{
+  "image": "data:image/png;base64,...",
+  "subsection_id": "tile-0-0",
+  "max_width": 500,
+  "max_height": 500
+}
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+**Response:**
+```json
+{
+  "annotated_image": "data:image/png;base64,...",
+  "incoming_image": "data:image/png;base64,...",
+  "marker_coordinates": [
+    {"x": 100, "y": 150},
+    {"x": 200, "y": 250}
+  ]
+}
+```
+Client Code
+The client code is implemented in React and uses the Google Maps API for rendering the map and capturing screenshots.
 
-### `npm run build`
-
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
-
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+### MapComponent.jsx
+See the code in the `client/src/components/MapComponent.jsx` file.
+Future Enhancements
+Here are some potential enhancements for the project:
+- Implement authentication for secure access.
+- Add more detailed error handling and user feedback.
+- Improve the UI/UX for better user interaction.
+- Expand functionality to support more complex image processing tasks.
